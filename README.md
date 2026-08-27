@@ -23,11 +23,22 @@ Optionally backed by a MySQL database via SQLAlchemy.
 ## Setup
 
 ```powershell
+git clone https://github.com/sathvik1607/Quiz_mcp_server.git
+cd Quiz_mcp_server
 python -m venv venv
 .\venv\Scripts\pip install -r requirements.txt
 copy .env.example .env
 # fill in .env with real DB credentials (or remove the DB_* lines if unused)
 ```
+
+Sanity-check the DB connection before wiring this into Claude Desktop:
+
+```powershell
+.\venv\Scripts\python.exe -c "from config import engine; from sqlalchemy import text; print(engine.connect().execute(text('SELECT 1')).scalar())"
+```
+
+This should print `1`. If it hangs or errors, fix `.env`/DB connectivity first — don't try to
+debug that through Claude Desktop.
 
 ## Run locally (stdio)
 
@@ -35,15 +46,21 @@ copy .env.example .env
 .\venv\Scripts\python.exe server.py
 ```
 
-Or use the MCP inspector to call tools manually:
+Or use the MCP inspector to call tools manually (browser UI, no Claude Desktop needed — good for
+checking each tool's request/response in isolation). Requires Node/npm, since it launches via
+`npx`:
 
 ```powershell
-.\venv\Scripts\python.exe -m mcp dev server.py
+.\venv\Scripts\mcp.exe dev server.py
 ```
+
+Use the `mcp.exe` entry point in `venv\Scripts`, not `python -m mcp` — the `mcp` package has no
+`__main__` and that form fails.
 
 ### Connect to Claude Desktop
 
-Add to `%APPDATA%\Claude\claude_desktop_config.json`:
+Add to `%APPDATA%\Claude\claude_desktop_config.json` (merge into whatever's already there —
+don't overwrite the file):
 
 ```json
 {
@@ -56,7 +73,26 @@ Add to `%APPDATA%\Claude\claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop — tools appear automatically.
+Use absolute paths matching wherever you cloned the repo.
+
+**Fully quit and restart Claude Desktop** — close it from the system tray, not just the window.
+It only reloads MCP config on a full restart.
+
+Then verify it loaded: **Settings → Connectors** → `quizapp` should be listed under "Other
+tools" with 5 tools (Register user, Get question, Validate answer, Generate leaderboard, Review
+answers).
+
+### Playing the quiz
+
+Start a **new chat** and be explicit — a vague prompt like "let's start the quiz" can get
+misrouted to an unrelated built-in "generate a quiz" flow instead of calling this server's
+tools. Instead say something like:
+
+> "Use the register_user tool to register me as \<name> with unique_id \<id>, then start the
+> quiz."
+
+From there the server's own instructions (in `server.py`) drive the rest of the flow — one
+question at a time, waiting for your answer before moving on.
 
 ## Deploy to Render (HTTP, for claude.ai)
 
@@ -122,3 +158,7 @@ No separate registration step — `register(mcp)` is called for both the stdio a
 - Any user-supplied table/column name should be checked against an allowlist before use in SQL.
 - The Render HTTP endpoint has no authentication — treat it as public. Don't add tools that
   expose sensitive data or destructive DB operations until auth is added back.
+- Whoever holds the shared `DB_*` credentials is pointed at the same live database — there's no
+  separate dev/staging instance. `register_user` and `validate_answer` write directly into it,
+  so testing locally adds real rows next to real quiz data. Use a distinctive `unique_id` when
+  testing, and don't reuse these credentials past what's needed.
