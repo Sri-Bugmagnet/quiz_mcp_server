@@ -78,7 +78,9 @@ if __name__ == "__main__":
         from starlette.responses import Response, PlainTextResponse
         from mcp.server.transport_security import TransportSecuritySettings
 
-        BASE_URL = "https://quiz-mcp-server.onrender.com"
+        # Render auto-injects RENDER_EXTERNAL_URL with this service's own public URL —
+        # read it instead of hardcoding, so a rename/redeploy never breaks the allowlist.
+        BASE_URL = os.environ["RENDER_EXTERNAL_URL"]
         PORT = int(os.getenv("PORT", 8000))
 
         # Build the HTTP app
