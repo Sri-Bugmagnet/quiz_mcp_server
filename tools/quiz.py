@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from mcp.server.fastmcp import FastMCP
 
-
+QUIZ_ID = 1
 def _next_question_number(after=None):
     with config.engine.connect() as conn:
         if after is None:
